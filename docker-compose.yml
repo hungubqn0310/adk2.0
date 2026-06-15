@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: adk2-postgres
+    environment:
+      POSTGRES_USER: adk2
+      POSTGRES_PASSWORD: adk2
+      POSTGRES_DB: adk2_session_db
+    # Không publish 5432 ra host (tránh đụng Postgres khác); app nối qua mạng nội bộ.
+    # DB/volume riêng hẳn ADK 1.x — không trùng dữ liệu.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adk2 -d adk2_session_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Gemini proxy (xoay API key) — giống production. Không set SESSION_SERVICE_URI
+  # nên proxy đọc key trực tiếp từ env API_KEYS (fallback), khỏi seed DB.
+  gemini-proxy:
+    build:
+      context: ./gemini-proxy
+      dockerfile: Dockerfile
+    container_name: adk2-gemini-proxy
+    environment:
+      TARGET_BASE_URL: "https://generativelanguage.googleapis.com"
+      PORT: "16060"
+      API_KEYS: "${GOOGLE_API_KEY}"          # nhiều key ngăn cách bằng ';'
+    ports:
+      - "16060:16060"
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: adk2-qdrant
+    volumes:
+      - qdrantdata:/qdrant/storage
+    restart: unless-stopped
+
+  adk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adk2-mmvn:latest
+    container_name: adk2-mmvn
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gemini-proxy:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    ports:
+      - "8789:8789"
+    environment:
+      GOOGLE_GENAI_USE_VERTEXAI: "0"
+      # App gọi Gemini qua proxy (key thật nằm ở proxy) — giống production.
+      GOOGLE_GEMINI_BASE_URL: "http://gemini-proxy:16060"
+      GOOGLE_API_KEY: "placeholder"
+      # run_adk.py đọc SESSION_SERVICE_URI (sync psycopg2) rồi tự derive asyncpg cho ADK 2.0.
+      SESSION_SERVICE_URI: "postgresql+psycopg2://adk2:adk2@postgres:5432/adk2_session_db"
+      QDRANT_URL: "http://qdrant:6333"
+      RAG_INPUT_DIR: "/app/data/documents"
+      # Proxy xoay nhiều key → explicit CachedContent (per-key) sẽ 403 khi đổi key.
+      # Tắt explicit cache; Gemini vẫn implicit-cache per-key tự động.
+      DISABLE_PROMPT_CACHE: "1"
+      # ADK 2.0 auto-instrument tracing (spans) bị bug với streaming + async:
+      # "ValueError: Token was created in a different Context" → _run_and_handle_error
+      # coi như fail → retry LLM tới 5 lần → 1 call ~11s. Không có OTLP exporter nên
+      # tracing vô dụng. Tắt OTel SDK (span/meter thành no-op); token billing vẫn ghi
+      # DB qua _db_engine độc lập nên không ảnh hưởng.
+      OTEL_SDK_DISABLED: "true"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  qdrantdata:

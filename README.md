@@ -5,7 +5,7 @@ google-adk **2.0.0** với Gemini 3.5 Flash, isolated hoàn toàn khỏi các pr
 ## Setup
 
 ```bash
-cd /home/khanh/hungpq/adk2.0/demo_agent
+cd .../adk2.0/demo_agent
 cp .env.example .env
 # Điền GOOGLE_API_KEY vào .env
 ```
@@ -13,14 +13,14 @@ cp .env.example .env
 ## Chạy CLI
 
 ```bash
-/home/khanh/hungpq/adk2.0/.venv/bin/python main.py
+.../adk2.0/.venv/bin/python main.py
 ```
 
 ## Chạy Web UI (ADK built-in)
 
 ```bash
-cd /home/khanh/hungpq/adk2.0/demo_agent
-/home/khanh/hungpq/adk2.0/.venv/bin/adk web
+cd .../adk2.0/demo_agent
+.../adk2.0/.venv/bin/adk web
 # Mở http://localhost:8000
 ```
 

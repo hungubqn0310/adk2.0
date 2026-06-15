@@ -1,0 +1,120 @@
+{
+  "capabilities": {
+
+  },
+  "defaultInputModes": [
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "text/plain"
+  ],
+  "description": "MM Mega Market Vietnam B2C Chatbot Agent, a multi-tool agent system that provides information and services related to MM Mega Market Vietnam, including product search, price bidding, cart management, order placement, and answering common questions about the company and its policies. ",
+  "name": "coordinator_agent",
+  "protocolVersion": "0.2.6",
+  "skills": [
+    {
+      "description": "Handles questions and provides information about MM Mega Market Vietnam, including company details, contact information, payment policy, shipping policies, delivery instructions, return policies, store locations, nearest store from customer's address, and more.",
+      "id": "question_answer_agent_question_answer_agent",
+      "name": "question_answer_agent: model",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm"
+      ]
+    },
+    {
+      "description": "Lấy thông tin chung về MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-mmvn_faq_get_general_info",
+      "name": "question_answer_agent: mmvn_faq_get_general_info",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Lấy thông tin liên hệ của MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-mmvn_faq_get_contact_info",
+      "name": "question_answer_agent: mmvn_faq_get_contact_info",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Lấy thông tin về chính sách giao hàng của MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-mmvn_faq_get_delivery_policy",
+      "name": "question_answer_agent: mmvn_faq_get_delivery_policy",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Lấy thông tin về chính sách đổi trả của MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-get_mmvn_return_policy",
+      "name": "question_answer_agent: get_mmvn_return_policy",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Lấy thông tin về chính sách bảo mật của MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-mmvn_privacy_policy",
+      "name": "question_answer_agent: mmvn_privacy_policy",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Lấy hướng dẫn mua hàng của MM Mega Market.",
+      "id": "question_answer_agent_question_answer_agent-get_mm_purchase_guide",
+      "name": "question_answer_agent: get_mm_purchase_guide",
+      "tags": [
+        "sub_agent:question_answer_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Mega Market Vietnam E-commerce agent for product search, cart management, order placement. Also capable of answering common question about products and cooking. ",
+      "id": "cng_agent_cng_agent",
+      "name": "cng_agent: model",
+      "tags": [
+        "sub_agent:cng_agent",
+        "llm"
+      ]
+    },
+    {
+      "description": "A specialized agent that can helps with food, cooking questions and ingredient recognition from images. It provides detailed cooking instructions, nutritional information, and suggestions for related ingredients or dishes based on user preferences. Finally it can suggest products from MM Mega Market Vietnam based on the user's cooking needs.",
+      "id": "cng_agent_cng_agent-chef_agent",
+      "name": "cng_agent: chef_agent",
+      "tags": [
+        "sub_agent:cng_agent",
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "E-commerce agent for product search, product details. Can search products, get product details. Direct to this agent for product-related queries. DO NOT have the ability to manage shopping carts or place orders.",
+      "id": "cng_agent_cng_agent-cng_product_search_agent",
+      "name": "cng_agent: cng_product_search_agent",
+      "tags": [
+        "sub_agent:cng_agent",
+        "llm",
+        "tools"
+      ]
+    }
+
+    
+    
+  ],
+  "supportsAuthenticatedExtendedCard": false,
+  "url": "https://mmvn-b2c-chatbot.izysync.com/a2a",
+  "version": "0.0.1"
+}

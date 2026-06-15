@@ -1,0 +1,26 @@
+# Virtualenv & caches
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Secrets — KHÔNG đưa vào image, truyền qua env/compose
+.env
+*.env.local
+demo_agent/.env
+
+# Git & tooling
+.git/
+.gitignore
+.code-review-graph/
+.adk/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.log
+
+# Docs không cần trong image runtime
+CLAUDE.md

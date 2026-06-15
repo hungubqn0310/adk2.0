@@ -1,0 +1,55 @@
+[project]
+name = "adk2-mmvn"
+version = "0.1.0"
+description = "mmvn_b2c_agent (root -> cng -> cng_product) port lên ADK 2.0 — chạy bằng uv + Docker"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # === ADK 2.2.0: kéo google-genai 2.x (>=2.4) cho gemini-3 đầy đủ ===
+    "google-adk[eval,otel-gcp,extensions]==2.2.0",
+    # === Phần còn lại giữ nguyên như ai-mmvn-chatbot/pyproject.toml ===
+    "a2a-sdk==0.2.16",
+    "aiohttp>=3.13.0",
+    "aiosqlite>=0.19.0",
+    "apscheduler>=3.11.0",
+    "Brotli>=1.1.0",
+    "docx2txt>=0.9",
+    "fastapi>=0.119.0",
+    "fastmcp>=2.12.4",
+    "google-api-python-client>=2.184.0",
+    "google-cloud-speech>=2.27.0",
+    "cryptography>=43.0.0",
+    "PyYAML>=6.0.2",
+    "google-auth>=2.41.1",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.2",
+    "google-genai>=1.40.0",
+    "gtts>=2.5.4",
+    "html2text>=2025.4.15",
+    "httpx>=0.28.1",
+    "langdetect>=1.0.9",
+    "markdown>=3.9",
+    "numpy>=2.3.4",
+    "opentelemetry-distro>=0.58b0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.37.0",
+    "pandas>=2.2.3",
+    "protobuf>=6.33.0",
+    "asyncpg>=0.30.0",
+    "psycopg2-binary>=2.9.11",
+    "pydantic>=2.12.2",
+    "pyjwt>=2.10.1",
+    "pymupdf>=1.26.5",
+    "python-dotenv>=1.1.1",
+    "qdrant-client>=1.15.1",
+    "requests>=2.32.5",
+    "sqlalchemy>=2.0.44",
+    "starlette>=0.48.0",
+    "tenacity>=8.5.0",
+    "thefuzz>=0.22.1",
+    "typing-extensions>=4.15.0",
+    "tzdata>=2025.2",
+    "uvicorn>=0.37.0",
+]
+
+[tool.uv]
+package = false

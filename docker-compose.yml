@@ -71,6 +71,8 @@ services:
       # tracing vô dụng. Tắt OTel SDK (span/meter thành no-op); token billing vẫn ghi
       # DB qua _db_engine độc lập nên không ảnh hưởng.
       OTEL_SDK_DISABLED: "true"
+    volumes:
+      - ./data/documents:/app/data/documents
     restart: unless-stopped
 
 volumes:

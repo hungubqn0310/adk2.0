@@ -56,7 +56,7 @@ async def make_graphql_request_async(query: str, variables: dict[str, Any],
                                      max_retry_delay: float = 2.0,
                                      auth_token: str | None = None,
                                      ) -> dict | list | None:
-    # session_timeout = aiohttp.ClientTimeout(connect=API_CONNECT_TIMEOUT[0], total=API_CONNECT_TIMEOUT[-1], )
+    session_timeout = aiohttp.ClientTimeout(connect=API_CONNECT_TIMEOUT[0], total=30)
     payload = {
         "query": query,
         "variables": variables
@@ -74,7 +74,7 @@ async def make_graphql_request_async(query: str, variables: dict[str, Any],
     url = f"{base_url.rstrip('/')}/graphql"
     for retries in range(max_retries):
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=session_timeout) as session:
                 async with session.post(url, json=payload, headers=headers) as response:
                     response.raise_for_status()  # Raise an error for bad responses
                     res = await response.json()

@@ -172,7 +172,7 @@ async def _update_cart_item_quantity(
                 updateCartItems(input: { cart_id: $cartId, cart_items: $items }) {
                     cart {
                         id
-                        total_summary_quantity_including_config
+                        total_quantity
                         items {
                             uid
                             quantity
@@ -193,21 +193,9 @@ async def _update_cart_item_quantity(
                                         regular_price { value currency }
                                     }
                                 }
-                                dnr_price {
-                                    event_name
-                                    promo_amount
-                                    promo_label
-                                    promo_type
-                                    promo_value
-                                    qty
-                                }
                             }
                             prices {
                                 price_including_tax { value currency }
-                                discounts {
-                                    label
-                                    amount { value currency }
-                                }
                                 row_total_including_tax { value currency }
                                 total_item_discount { value currency }
                             }
@@ -215,10 +203,6 @@ async def _update_cart_item_quantity(
                         prices {
                             subtotal_including_tax { value currency }
                             subtotal_with_discount_excluding_tax { value currency }
-                            discounts {
-                                label
-                                amount { value currency }
-                            }
                             grand_total { value currency }
                         }
                     }

@@ -28,6 +28,8 @@ dotenv.load_dotenv(override=True)
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger('google.genai').setLevel(logging.DEBUG)
 logging.getLogger('google.adk').setLevel(logging.DEBUG)
+# Suppress OTel "Token was created in a different Context" noise from asyncio.create_task
+logging.getLogger('opentelemetry').setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

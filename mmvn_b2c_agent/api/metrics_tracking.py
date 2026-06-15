@@ -135,19 +135,19 @@ async def get_avg_response_time(
                 SELECT
                     invocation_id,
                     MIN(timestamp) FILTER (
-                        WHERE author = 'user'
-                          AND content->>'role' = 'user'
+                        WHERE event_data->>'author' = 'user'
+                          AND event_data->'content'->>'role' = 'user'
                           AND NOT EXISTS (
                               SELECT 1
-                              FROM jsonb_array_elements(content->'parts') p
+                              FROM jsonb_array_elements(event_data->'content'->'parts') p
                               WHERE p ? 'function_response'
                           )
                     ) AS user_start_ts,
                     MAX(timestamp) FILTER (
-                        WHERE content->>'role' = 'model'
+                        WHERE event_data->'content'->>'role' = 'model'
                     ) AS model_end_ts
                 FROM events
-                WHERE content IS NOT NULL
+                WHERE event_data->'content' IS NOT NULL
                   AND {date_filter}
                 GROUP BY invocation_id
             )
@@ -227,12 +227,12 @@ async def get_conversion_rate(
                   WHERE e.app_name = s.app_name
                     AND e.user_id = s.user_id
                     AND e.session_id = s.id
-                    AND e.content IS NOT NULL
-                    AND e.content->>'role' = 'user'
-                    AND e.author = 'user'
+                    AND e.event_data->'content' IS NOT NULL
+                    AND e.event_data->'content'->>'role' = 'user'
+                    AND e.event_data->>'author' = 'user'
                     AND NOT EXISTS (
                         SELECT 1
-                        FROM jsonb_array_elements(e.content->'parts') p
+                        FROM jsonb_array_elements(e.event_data->'content'->'parts') p
                         WHERE p ? 'function_response'
                     )
               )
@@ -245,8 +245,8 @@ async def get_conversion_rate(
                 part->'function_response'->'response'->>'status' AS order_status,
                 COUNT(*) AS cnt
             FROM events,
-                 jsonb_array_elements(content->'parts') AS part
-            WHERE content IS NOT NULL
+                 jsonb_array_elements(event_data->'content'->'parts') AS part
+            WHERE event_data->'content' IS NOT NULL
               AND {event_date_filter}
               AND part->'function_response'->>'name' = 'show_payment_methods'
               AND part->'function_response'->'response'->>'order_number' IS NOT NULL
@@ -477,8 +477,8 @@ async def get_topics_stats(
                     e.invocation_id,
                     part->'function_call'->>'name' AS func_name
                 FROM events e,
-                     jsonb_array_elements(e.content->'parts') AS part
-                WHERE e.content IS NOT NULL
+                     jsonb_array_elements(e.event_data->'content'->'parts') AS part
+                WHERE e.event_data->'content' IS NOT NULL
                   AND part ? 'function_call'
                   AND {time_filter}
             ),
@@ -486,11 +486,11 @@ async def get_topics_stats(
                 SELECT
                     e.invocation_id,
                     CASE
-                        WHEN e.author = 'product_search_tool_caller' THEN 'search_product'
-                        ELSE e.author
+                        WHEN e.event_data->>'author' = 'product_search_tool_caller' THEN 'search_product'
+                        ELSE e.event_data->>'author'
                     END AS func_name
                 FROM events e
-                WHERE e.author IN ('product_search_tool_caller')
+                WHERE e.event_data->>'author' IN ('product_search_tool_caller')
                   AND {time_filter}
             )
             SELECT func_name, COUNT(DISTINCT invocation_id) AS invocation_count
@@ -572,10 +572,10 @@ async def get_input_channels(
         voice_result = await conn.execute(text(f"""
             SELECT COUNT(DISTINCT e.invocation_id)
             FROM events e,
-                 jsonb_array_elements(e.content->'parts') AS part
-            WHERE e.content IS NOT NULL
-              AND e.content->>'role' = 'user'
-              AND e.author = 'user'
+                 jsonb_array_elements(e.event_data->'content'->'parts') AS part
+            WHERE e.event_data->'content' IS NOT NULL
+              AND e.event_data->'content'->>'role' = 'user'
+              AND e.event_data->>'author' = 'user'
               AND part ? 'inline_data'
               AND part->'inline_data'->>'mime_type' LIKE 'audio/%'
               AND {time_filter}
@@ -586,10 +586,10 @@ async def get_input_channels(
         file_result = await conn.execute(text(f"""
             SELECT COUNT(DISTINCT e.invocation_id)
             FROM events e,
-                 jsonb_array_elements(e.content->'parts') AS part
-            WHERE e.content IS NOT NULL
-              AND e.content->>'role' = 'user'
-              AND e.author = 'user'
+                 jsonb_array_elements(e.event_data->'content'->'parts') AS part
+            WHERE e.event_data->'content' IS NOT NULL
+              AND e.event_data->'content'->>'role' = 'user'
+              AND e.event_data->>'author' = 'user'
               AND part ? 'inline_data'
               AND part->'inline_data'->>'mime_type' NOT LIKE 'audio/%'
               AND {time_filter}
@@ -600,14 +600,14 @@ async def get_input_channels(
         text_result = await conn.execute(text(f"""
             SELECT COUNT(DISTINCT e.invocation_id)
             FROM events e
-            WHERE e.content IS NOT NULL
-              AND e.content->>'role' = 'user'
-              AND e.author = 'user'
+            WHERE e.event_data->'content' IS NOT NULL
+              AND e.event_data->'content'->>'role' = 'user'
+              AND e.event_data->>'author' = 'user'
               AND NOT EXISTS (
-                  SELECT 1 FROM jsonb_array_elements(e.content->'parts') p WHERE p ? 'inline_data'
+                  SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') p WHERE p ? 'inline_data'
               )
               AND NOT EXISTS (
-                  SELECT 1 FROM jsonb_array_elements(e.content->'parts') p WHERE p ? 'function_response'
+                  SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') p WHERE p ? 'function_response'
               )
               AND {time_filter}
         """), params)
@@ -617,7 +617,7 @@ async def get_input_channels(
         lang_result = await conn.execute(text(f"""
             SELECT language_code, COUNT(DISTINCT e.invocation_id) AS cnt
             FROM events e
-            WHERE e.author = 'user'
+            WHERE e.event_data->>'author' = 'user'
               AND e.language_code IS NOT NULL
               AND {time_filter}
             GROUP BY e.language_code

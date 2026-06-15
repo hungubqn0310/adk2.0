@@ -54,7 +54,7 @@ async def _remove_cart_item(cart_item_id: str, tool_context: ToolContext, remove
             removeItemFromCart(input: { cart_id: $cartId, cart_item_uid: $cartItemId }) {
                 cart {
                     id
-                    total_summary_quantity_including_config
+                    total_quantity
                     items {
                         uid
                         quantity
@@ -75,22 +75,9 @@ async def _remove_cart_item(cart_item_id: str, tool_context: ToolContext, remove
                                     regular_price { value currency }
                                 }
                             }
-                            dnr_price {
-                                event_name
-                                promo_amount
-                                promo_label
-                                promo_type
-                                promo_value
-                                qty
-                            }
                         }
                         prices {
                             price_including_tax { value currency }
-                            discounts {
-                                applied_to
-                                label
-                                amount { value currency currency }
-                            }
                             row_total_including_tax { value currency }
                             total_item_discount { value currency }
                         }
@@ -98,7 +85,6 @@ async def _remove_cart_item(cart_item_id: str, tool_context: ToolContext, remove
                     prices {
                         subtotal_including_tax { value currency }
                         subtotal_with_discount_excluding_tax { value currency }
-                        discounts { label amount { value currency } }
                         grand_total { value currency }
                     }
                 }
@@ -527,7 +513,7 @@ async def remove_everything_from_cart(tool_context: ToolContext) -> dict:
 
         # Clear cart state
         tool_context.state['state']['current_cart_data'] = {
-            'cart_raw_data': {'id': magento_cart_id, 'items': [], 'total_summary_quantity_including_config': 0},
+            'cart_raw_data': {'id': magento_cart_id, 'items': [], 'total_quantity': 0},
             'processed_cart_data': {'items': [], 'unique_product_count': 0, 'cart_subtotal_including_tax': '0 VND', 'cart_grand_total': '0 VND', 'cart_discounts': None},
             'invocation_id': tool_context.invocation_id
         }

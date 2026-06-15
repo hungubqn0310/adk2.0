@@ -233,7 +233,7 @@ async def add_product_to_cart(
                 ) {
                     cart {
                         id
-                        total_summary_quantity_including_config
+                        total_quantity
                         items {
                             uid
                             quantity
@@ -255,42 +255,16 @@ async def add_product_to_cart(
                                         regular_price { value currency }
                                     }
                                 }
-                                dnr_price {
-                                    event_name
-                                    promo_amount
-                                    promo_label
-                                    promo_type
-                                    promo_value
-                                    qty
-                                }
                             }
                             prices {
-                                price_including_tax {
-                                    value
-                                    currency
-                                }
-                                discounts {
-                                    applied_to
-                                    label
-                                    amount {
-                                        value
-                                        currency
-                                    }
-                                }
-                                row_total_including_tax {
-                                    value
-                                    currency
-                                }
-                                total_item_discount {
-                                    value
-                                    currency
-                                }
+                                price_including_tax { value currency }
+                                row_total_including_tax { value currency }
+                                total_item_discount { value currency }
                             }
                         }
                         prices {
                             subtotal_including_tax { value currency }
                             subtotal_with_discount_excluding_tax { value currency }
-                            discounts { label amount { value currency } }
                             grand_total { value currency }
                         }
                     }

@@ -2,8 +2,22 @@ import asyncio
 import datetime
 import os
 import logging
-import pickle
+import json
 from typing import Optional
+
+# OTel bug: Token created in one async context, detached in another (GeneratorExit on stream close).
+# OTEL_SDK_DISABLED only disables the SDK tracer, not the API context module. Patch detach directly.
+try:
+    import opentelemetry.context as _otel_ctx
+    _orig_detach = _otel_ctx.detach
+    def _safe_detach(token):
+        try:
+            _orig_detach(token)
+        except ValueError:
+            pass
+    _otel_ctx.detach = _safe_detach
+except Exception:
+    pass
 from sqlalchemy import create_engine, text
 from google.genai import types as genai_types
 from google.genai.errors import ServerError
@@ -122,7 +136,7 @@ def _save_language_code(invocation_id: str, lang: str) -> None:
                 UPDATE events
                 SET language_code = :lang
                 WHERE invocation_id = :inv_id
-                  AND author = 'user'
+                  AND event_data->>'author' = 'user'
                   AND language_code IS NULL
             """), {"lang": lang, "inv_id": invocation_id})
     except Exception as e:
@@ -142,29 +156,36 @@ def record_error(
     try:
         engine = _get_error_engine()
         timestamp = datetime.datetime.now(datetime.timezone.utc)
+        event_id = f"err-{timestamp.timestamp()}-{invocation_id[:8]}"
+        event_data = {
+            "id": event_id,
+            "author": "error_recorder",
+            "error_code": error_code,
+            "error_message": error_message[:1024],
+            "interrupted": bool(interrupted),
+            "invocation_id": invocation_id,
+            "timestamp": timestamp.timestamp(),
+            "actions": {"state_delta": {}, "artifact_delta": {}, "requested_auth_configs": {}, "requested_tool_confirmations": {}},
+            "content": None,
+        }
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO events (
                     id, app_name, user_id, session_id, invocation_id,
-                    author, error_code, error_message, interrupted,
-                    timestamp, actions, content
+                    timestamp, event_data
                 ) VALUES (
                     :id, :app_name, :user_id, :session_id, :invocation_id,
-                    'error_recorder', :error_code, :error_message, :interrupted,
-                    :timestamp, :actions, :content
+                    :timestamp, cast(:event_data as jsonb)
                 )
+                ON CONFLICT (id, app_name, user_id, session_id) DO NOTHING
             """), {
-                "id": f"err-{timestamp.timestamp()}-{invocation_id[:8]}",
+                "id": event_id,
                 "app_name": app_name,
                 "user_id": user_id,
                 "session_id": session_id,
                 "invocation_id": invocation_id,
-                "error_code": error_code,
-                "error_message": error_message[:1024],
-                "interrupted": bool(interrupted),
                 "timestamp": timestamp,
-                "actions": pickle.dumps({}),
-                "content": None,
+                "event_data": json.dumps(event_data),
             })
         logger.info(f"[ErrorRecorder] Recorded: code={error_code}, msg={error_message[:80]}")
     except Exception as e:
@@ -193,6 +214,14 @@ class CountInvocationPlugin(BasePlugin):
         # Initialize OpenTelemetry metrics
         self.metrics = get_metrics()
 
+    _AGENT_STATUS_MAP: dict[str, str] = {
+        'question_answer_agent': 'Đang tìm kiếm thông tin...',
+        'cng_product_search_tool': 'Đang phân tích yêu cầu tìm kiếm...',
+        'product_search_tool_caller': 'Đang xác định từ khóa tìm kiếm...',
+        'product_search_response_generator': 'Đang tổng hợp kết quả...',
+        'checkout_agent': 'Đang xử lý đặt hàng...',
+    }
+
     async def before_agent_callback(
             self, *, agent: BaseAgent, callback_context: CallbackContext
     ) -> None:
@@ -200,6 +229,9 @@ class CountInvocationPlugin(BasePlugin):
         self.agent_count += 1
         print(f'[Plugin] Agent run count: {self.agent_count}')
         callback_context.state['current_time'] = datetime.datetime.now().isoformat()
+        status = self._AGENT_STATUS_MAP.get(getattr(agent, 'name', ''))
+        if status:
+            callback_context.state['ai_thinking_status'] = status
 
     async def before_model_callback(
             self, *, callback_context: CallbackContext, llm_request: LlmRequest

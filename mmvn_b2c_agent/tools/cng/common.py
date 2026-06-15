@@ -304,6 +304,8 @@ def process_cart_data(raw_cart_data: dict) -> dict:
 
         if 'total_summary_quantity_including_config' in processed_cart:
             processed_cart['unique_product_count'] = processed_cart.pop('total_summary_quantity_including_config')
+        elif 'total_quantity' in processed_cart:
+            processed_cart['unique_product_count'] = processed_cart.pop('total_quantity')
 
         if 'subtotal_including_tax' in processed_cart.get('prices', {}):
             cart_subtotal_including_tax = (f"{cart_subtotal_including_tax.get('value', '')} "

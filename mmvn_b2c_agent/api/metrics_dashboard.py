@@ -431,25 +431,25 @@ async def get_error_metrics(
 
     error_case_sql = """
         CASE
-            WHEN error_code = 'timeout' THEN 'timeout'
-            WHEN error_code = 'no_match' THEN 'no_match'
-            WHEN error_code = 'malformed_function_call' THEN 'system_error'
-            WHEN error_code LIKE '%timeout%' OR error_message LIKE '%timeout%' THEN 'timeout'
-            WHEN error_code LIKE '%not_found%' OR error_code LIKE '%no_match%'
-                 OR error_message LIKE '%not found%' OR error_message LIKE '%no match%' THEN 'no_match'
-            WHEN error_code IS NOT NULL OR error_message IS NOT NULL THEN 'system_error'
+            WHEN event_data->>'error_code' = 'timeout' THEN 'timeout'
+            WHEN event_data->>'error_code' = 'no_match' THEN 'no_match'
+            WHEN event_data->>'error_code' = 'malformed_function_call' THEN 'system_error'
+            WHEN event_data->>'error_code' LIKE '%timeout%' OR event_data->>'error_message' LIKE '%timeout%' THEN 'timeout'
+            WHEN event_data->>'error_code' LIKE '%not_found%' OR event_data->>'error_code' LIKE '%no_match%'
+                 OR event_data->>'error_message' LIKE '%not found%' OR event_data->>'error_message' LIKE '%no match%' THEN 'no_match'
+            WHEN event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL THEN 'system_error'
             ELSE 'other'
         END
     """
 
-    total_turns = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE author != 'system' AND {base_where}"), params).scalar() or 0
-    total_errors = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE (error_code IS NOT NULL OR error_message IS NOT NULL OR interrupted = TRUE) AND {base_where}"), params).scalar() or 0
+    total_turns = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE event_data->>'author' != 'system' AND {base_where}"), params).scalar() or 0
+    total_errors = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE (event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL OR (event_data->>'interrupted')::boolean = TRUE) AND {base_where}"), params).scalar() or 0
     error_rate = (total_errors / total_turns) if total_turns > 0 else 0.0
 
     breakdown_rows = conn.execute(text(f"""
         SELECT {error_case_sql} AS error_type, COUNT(*) AS cnt
         FROM events
-        WHERE (error_code IS NOT NULL OR error_message IS NOT NULL OR interrupted = TRUE) AND {base_where}
+        WHERE (event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL OR (event_data->>'interrupted')::boolean = TRUE) AND {base_where}
         GROUP BY error_type
     """), params).fetchall()
 
@@ -458,16 +458,16 @@ async def get_error_metrics(
         if row[0] in breakdown: breakdown[row[0]] = row[1]
 
     top_rows = conn.execute(text(f"""
-        SELECT error_message, COUNT(*) AS cnt FROM events
-        WHERE error_message IS NOT NULL AND {base_where}
+        SELECT event_data->>'error_message' AS error_message, COUNT(*) AS cnt FROM events
+        WHERE event_data->>'error_message' IS NOT NULL AND {base_where}
         GROUP BY error_message ORDER BY cnt DESC LIMIT 10
     """), params).fetchall()
 
-    agent_turns = {row[0]: row[1] for row in conn.execute(text(f"SELECT app_name, COUNT(*) FROM events WHERE author != 'system' AND {base_where} GROUP BY app_name"), params).fetchall()}
-    
+    agent_turns = {row[0]: row[1] for row in conn.execute(text(f"SELECT app_name, COUNT(*) FROM events WHERE event_data->>'author' != 'system' AND {base_where} GROUP BY app_name"), params).fetchall()}
+
     agent_error_rows = conn.execute(text(f"""
         SELECT app_name, COUNT(*) AS cnt FROM events
-        WHERE (error_code IS NOT NULL OR error_message IS NOT NULL OR interrupted = TRUE)
+        WHERE (event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL OR (event_data->>'interrupted')::boolean = TRUE)
         AND {base_where} AND app_name IS NOT NULL
         GROUP BY app_name ORDER BY cnt DESC
     """), params).fetchall()
@@ -503,22 +503,22 @@ async def get_slo_metrics(
     
     error_case_sql = """
         CASE
-            WHEN error_code = 'timeout' THEN 'timeout'
-            WHEN error_code LIKE '%timeout%' OR error_message LIKE '%timeout%' THEN 'timeout'
-            WHEN error_code = 'malformed_function_call' THEN 'system_error'
-            WHEN error_code IS NOT NULL OR error_message IS NOT NULL THEN 'system_error'
-            WHEN interrupted = TRUE THEN 'system_error'
+            WHEN event_data->>'error_code' = 'timeout' THEN 'timeout'
+            WHEN event_data->>'error_code' LIKE '%timeout%' OR event_data->>'error_message' LIKE '%timeout%' THEN 'timeout'
+            WHEN event_data->>'error_code' = 'malformed_function_call' THEN 'system_error'
+            WHEN event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL THEN 'system_error'
+            WHEN (event_data->>'interrupted')::boolean = TRUE THEN 'system_error'
             ELSE 'other'
         END
     """
 
-    total_turns = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE author != 'system' AND {base_where}"), params).scalar() or 0
-    total_errors = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE (error_code IS NOT NULL OR error_message IS NOT NULL OR interrupted = TRUE) AND {base_where}"), params).scalar() or 0
+    total_turns = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE event_data->>'author' != 'system' AND {base_where}"), params).scalar() or 0
+    total_errors = conn.execute(text(f"SELECT COUNT(*) FROM events WHERE (event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL OR (event_data->>'interrupted')::boolean = TRUE) AND {base_where}"), params).scalar() or 0
 
     breakdown_rows = conn.execute(text(f"""
         SELECT {error_case_sql} AS error_type, COUNT(*) AS cnt
         FROM events
-        WHERE (error_code IS NOT NULL OR error_message IS NOT NULL OR interrupted = TRUE) AND {base_where}
+        WHERE (event_data->>'error_code' IS NOT NULL OR event_data->>'error_message' IS NOT NULL OR (event_data->>'interrupted')::boolean = TRUE) AND {base_where}
         GROUP BY error_type
     """), params).fetchall()
 
@@ -642,7 +642,7 @@ def export_sessions_csv(
         SELECT
             session_id,
             EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp)))::int AS duration_seconds,
-            COUNT(*) FILTER (WHERE author = 'user') AS turn_count
+            COUNT(*) FILTER (WHERE event_data->>'author' = 'user') AS turn_count
         FROM events
         GROUP BY session_id
     ),
@@ -651,7 +651,7 @@ def export_sessions_csv(
             session_id,
             language_code
         FROM events
-        WHERE author = 'user'
+        WHERE event_data->>'author' = 'user'
           AND language_code IS NOT NULL
         ORDER BY session_id, timestamp DESC
     ),
@@ -660,21 +660,21 @@ def export_sessions_csv(
             e.session_id,
             BOOL_OR(
                 EXISTS (
-                    SELECT 1 FROM jsonb_array_elements(e.content->'parts') AS p
+                    SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') AS p
                     WHERE p->>'inline_data' IS NOT NULL
                       AND (p->'inline_data'->>'mime_type') LIKE 'audio/%'
                 )
             ) AS has_audio,
             BOOL_OR(
                 EXISTS (
-                    SELECT 1 FROM jsonb_array_elements(e.content->'parts') AS p
+                    SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') AS p
                     WHERE p->>'inline_data' IS NOT NULL
                       AND (p->'inline_data'->>'mime_type') NOT LIKE 'audio/%'
                 )
             ) AS has_file
         FROM events e
-        WHERE e.author = 'user'
-          AND e.content IS NOT NULL
+        WHERE e.event_data->>'author' = 'user'
+          AND e.event_data->'content' IS NOT NULL
         GROUP BY e.session_id
     ),
     session_orders AS (
@@ -686,7 +686,7 @@ def export_sessions_csv(
                 ', '
             ) AS order_ids
         FROM events e,
-             LATERAL jsonb_array_elements(e.content->'parts') AS p
+             LATERAL jsonb_array_elements(e.event_data->'content'->'parts') AS p
         WHERE p->'function_response'->>'name' = 'show_payment_methods'
           AND (p->'function_response'->'response'->>'order_number') IS NOT NULL
         GROUP BY e.session_id
@@ -694,9 +694,9 @@ def export_sessions_csv(
     session_feedback AS (
         SELECT
             session_id,
-            COUNT(*) FILTER (WHERE custom_metadata->>'feedback' = 'thumbs_up')   AS thumbs_up,
-            COUNT(*) FILTER (WHERE custom_metadata->>'feedback' = 'thumbs_down')  AS thumbs_down,
-            COUNT(*) FILTER (WHERE custom_metadata->>'feedback' IS NOT NULL)       AS total_feedback
+            COUNT(*) FILTER (WHERE event_data->'custom_metadata'->>'feedback' = 'thumbs_up')   AS thumbs_up,
+            COUNT(*) FILTER (WHERE event_data->'custom_metadata'->>'feedback' = 'thumbs_down')  AS thumbs_down,
+            COUNT(*) FILTER (WHERE event_data->'custom_metadata'->>'feedback' IS NOT NULL)       AS total_feedback
         FROM events
         GROUP BY session_id
     ),
@@ -704,7 +704,7 @@ def export_sessions_csv(
         SELECT
             session_id,
             COUNT(*) AS total_events,
-            COUNT(*) FILTER (WHERE error_code IS NOT NULL) AS error_events
+            COUNT(*) FILTER (WHERE event_data->>'error_code' IS NOT NULL) AS error_events
         FROM events
         GROUP BY session_id
     ),
@@ -712,13 +712,13 @@ def export_sessions_csv(
         SELECT
             session_id,
             invocation_id,
-            MIN(timestamp) FILTER (WHERE author = 'user') AS user_ts,
+            MIN(timestamp) FILTER (WHERE event_data->>'author' = 'user') AS user_ts,
             MIN(timestamp) FILTER (
-                WHERE author NOT IN ('user', 'system')
+                WHERE event_data->>'author' NOT IN ('user', 'system')
                   AND NOT (
-                        content IS NOT NULL
-                    AND jsonb_array_length(content->'parts') > 0
-                    AND (content->'parts'->0)->>'functionResponse' IS NOT NULL
+                        event_data->'content' IS NOT NULL
+                    AND jsonb_array_length(event_data->'content'->'parts') > 0
+                    AND (event_data->'content'->'parts'->0)->>'functionResponse' IS NOT NULL
                   )
             ) AS agent_ts
         FROM events
@@ -910,43 +910,43 @@ def preview_sessions(
     session_duration AS (
         SELECT session_id,
                EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp)))::int AS duration_seconds,
-               COUNT(*) FILTER (WHERE author = 'user') AS turn_count
+               COUNT(*) FILTER (WHERE event_data->>'author' = 'user') AS turn_count
         FROM events GROUP BY session_id
     ),
     session_language AS (
         SELECT DISTINCT ON (session_id) session_id, language_code
-        FROM events WHERE author = 'user' AND language_code IS NOT NULL
+        FROM events WHERE event_data->>'author' = 'user' AND language_code IS NOT NULL
         ORDER BY session_id, timestamp DESC
     ),
     session_multimedia AS (
         SELECT e.session_id,
-               BOOL_OR(EXISTS (SELECT 1 FROM jsonb_array_elements(e.content->'parts') AS p WHERE p->>'inline_data' IS NOT NULL AND (p->'inline_data'->>'mime_type') LIKE 'audio/%')) AS has_audio,
-               BOOL_OR(EXISTS (SELECT 1 FROM jsonb_array_elements(e.content->'parts') AS p WHERE p->>'inline_data' IS NOT NULL AND (p->'inline_data'->>'mime_type') NOT LIKE 'audio/%')) AS has_file
-        FROM events e WHERE e.author = 'user' AND e.content IS NOT NULL GROUP BY e.session_id
+               BOOL_OR(EXISTS (SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') AS p WHERE p->>'inline_data' IS NOT NULL AND (p->'inline_data'->>'mime_type') LIKE 'audio/%')) AS has_audio,
+               BOOL_OR(EXISTS (SELECT 1 FROM jsonb_array_elements(e.event_data->'content'->'parts') AS p WHERE p->>'inline_data' IS NOT NULL AND (p->'inline_data'->>'mime_type') NOT LIKE 'audio/%')) AS has_file
+        FROM events e WHERE e.event_data->>'author' = 'user' AND e.event_data->'content' IS NOT NULL GROUP BY e.session_id
     ),
     session_orders AS (
         SELECT e.session_id, TRUE AS has_order,
                STRING_AGG(DISTINCT (p->'function_response'->'response'->>'order_number'), ', ') AS order_ids
-        FROM events e, LATERAL jsonb_array_elements(e.content->'parts') AS p
+        FROM events e, LATERAL jsonb_array_elements(e.event_data->'content'->'parts') AS p
         WHERE p->'function_response'->>'name' = 'show_payment_methods'
           AND (p->'function_response'->'response'->>'order_number') IS NOT NULL
         GROUP BY e.session_id
     ),
     session_feedback AS (
         SELECT session_id,
-               COUNT(*) FILTER (WHERE custom_metadata->>'feedback' = 'thumbs_up')  AS thumbs_up,
-               COUNT(*) FILTER (WHERE custom_metadata->>'feedback' = 'thumbs_down') AS thumbs_down
+               COUNT(*) FILTER (WHERE event_data->'custom_metadata'->>'feedback' = 'thumbs_up')  AS thumbs_up,
+               COUNT(*) FILTER (WHERE event_data->'custom_metadata'->>'feedback' = 'thumbs_down') AS thumbs_down
         FROM events GROUP BY session_id
     ),
     session_errors AS (
         SELECT session_id, COUNT(*) AS total_events,
-               COUNT(*) FILTER (WHERE error_code IS NOT NULL) AS error_events
+               COUNT(*) FILTER (WHERE event_data->>'error_code' IS NOT NULL) AS error_events
         FROM events GROUP BY session_id
     ),
     invocation_times AS (
         SELECT session_id, invocation_id,
-               MIN(timestamp) FILTER (WHERE author = 'user') AS user_ts,
-               MIN(timestamp) FILTER (WHERE author NOT IN ('user','system') AND NOT (content IS NOT NULL AND jsonb_array_length(content->'parts') > 0 AND (content->'parts'->0)->>'functionResponse' IS NOT NULL)) AS agent_ts
+               MIN(timestamp) FILTER (WHERE event_data->>'author' = 'user') AS user_ts,
+               MIN(timestamp) FILTER (WHERE event_data->>'author' NOT IN ('user','system') AND NOT (event_data->'content' IS NOT NULL AND jsonb_array_length(event_data->'content'->'parts') > 0 AND (event_data->'content'->'parts'->0)->>'functionResponse' IS NOT NULL)) AS agent_ts
         FROM events GROUP BY session_id, invocation_id
     ),
     session_response_time AS (
